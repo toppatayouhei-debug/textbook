@@ -7,36 +7,42 @@ import json
 
 st.set_page_config(page_title="CROWN Buddy", layout="centered")
 
-# --- 1. データの読み込み（wordlists.csv を使用） ---
+# --- 1. データの読み込み（見出しスキップ & 自動判別） ---
 @st.cache_data
 def load_all_data():
-    # 本文モード用
+    file_path = "wordlists.csv"
     try:
-        df_text = pd.read_csv("wordlists.csv").fillna("")
-        text_list = df_text.values.tolist()
-    except:
-        text_list = [["Error", "wordlists.csvが見つかりません"]]
-
-    # 単語カードモード用（同じファイルを使用）
-    try:
-        df_tango = pd.read_csv("wordlists.csv").fillna("")
-        # カラムが足りない場合の補完ロジックを維持
-        while len(df_tango.columns) < 4:
-            df_tango[f'col_{len(df_tango.columns)}'] = ""
-        tango_list = df_tango.values.tolist()
-    except:
-        tango_list = [["Error", "wordlists.csvなし", "", ""]]
+        # sep=None でカンマかタブかを自動判別
+        # skiprows=1 で最初の見出し行を無視
+        # header=None で2行目からをデータとして認識
+        df = pd.read_csv(file_path, sep=None, engine='python', skiprows=1, header=None).fillna("")
+        
+        # 本文用データ
+        text_list = df.values.tolist()
+        
+        # 単語カード用データ（4列分を保証）
+        tango_df = df.copy()
+        while len(tango_df.columns) < 4:
+            tango_df[f'col_{len(tango_df.columns)}'] = ""
+        tango_list = tango_df.values.tolist()
+        
+    except Exception as e:
+        error_msg = [["Error", f"ファイルの読み込みに失敗しました: {e}", "", ""]]
+        return error_msg, error_msg
         
     return text_list, tango_list
 
 text_raw, tango_raw = load_all_data()
 
-# --- 2. 音声パック（ロジック完全維持） ---
+# --- 2. 音声パック作成（ロジック維持） ---
 @st.cache_data
 def prepare_assets(raw_data, is_tango=False):
     prepared = []
     for item in raw_data:
-        eng_text = str(item[0])
+        # 1列目が英語であることを想定
+        eng_text = str(item[0]) if item[0] else "Empty"
+        
+        # 音声生成
         tts = gTTS(text=eng_text, lang='en')
         fp = io.BytesIO()
         tts.write_to_fp(fp)
@@ -45,24 +51,23 @@ def prepare_assets(raw_data, is_tango=False):
         
         entry = {
             "eng": eng_text,
-            "jp": str(item[1]),
+            "jp": str(item[1]) if len(item) > 1 else "",
             "audio": f"data:audio/mp3;base64,{b64}"
         }
         if is_tango:
-            # CSVの3列目、4列目があれば例文として取得
             entry["ex"] = str(item[2]) if len(item) > 2 else ""
             entry["ext"] = str(item[3]) if len(item) > 3 else ""
         prepared.append(entry)
     return prepared
 
-with st.spinner("✨ Buddyが新しい単語帳を準備中..."):
+with st.spinner("✨ Buddyが単語を読み込み中..."):
     text_json = json.dumps(prepare_assets(text_raw, False))
     tango_json = json.dumps(prepare_assets(tango_raw, True))
 
-# タイトル
+# シンプルなタイトル
 st.markdown("<h1 style='text-align: center; color: #4a90e2;'>🤖 CROWN Buddy</h1>", unsafe_allow_html=True)
 
-# --- 3. メインUI ---
+# --- 3. メインUI (HTML/JS) ---
 st.components.v1.html(f"""
     <style>
         @keyframes glow {{
@@ -130,6 +135,8 @@ st.components.v1.html(f"""
 
         function updateCard(shouldPlay = true) {{
             const item = currentDataSet[index];
+            if (!item) return;
+            
             document.getElementById('eng').innerText = item.eng;
             document.getElementById('jp').innerText = item.jp;
             
@@ -183,7 +190,6 @@ st.components.v1.html(f"""
                 }};
             }}).catch(e => {{
                 card.classList.remove('playing');
-                console.log("Play blocked");
             }});
         }}
 
