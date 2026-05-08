@@ -5,120 +5,106 @@ import io
 import base64
 import json
 
-st.set_page_config(page_title="CROWN Buddy", layout="centered")
+st.set_page_config(page_title="CROWN Buddy - Large", layout="centered")
 
-# --- 1. データの読み込み（見出しスキップ & 自動判別） ---
+# --- 1. データの読み込み ---
 @st.cache_data
 def load_all_data():
     file_path = "wordlists.csv"
     try:
-        # sep=None でカンマかタブかを自動判別
-        # skiprows=1 で最初の見出し行を無視
-        # header=None で2行目からをデータとして認識
         df = pd.read_csv(file_path, sep=None, engine='python', skiprows=1, header=None).fillna("")
-        
-        # 本文用データ
         text_list = df.values.tolist()
-        
-        # 単語カード用データ（4列分を保証）
         tango_df = df.copy()
         while len(tango_df.columns) < 4:
             tango_df[f'col_{len(tango_df.columns)}'] = ""
         tango_list = tango_df.values.tolist()
-        
     except Exception as e:
-        error_msg = [["Error", f"ファイルの読み込みに失敗しました: {e}", "", ""]]
+        error_msg = [["Error", f"読み込み失敗: {e}", "", ""]]
         return error_msg, error_msg
-        
     return text_list, tango_list
 
 text_raw, tango_raw = load_all_data()
 
-# --- 2. 音声パック作成（ロジック維持） ---
+# --- 2. 音声パック作成 ---
 @st.cache_data
 def prepare_assets(raw_data, is_tango=False):
     prepared = []
     for item in raw_data:
-        # 1列目が英語であることを想定
         eng_text = str(item[0]) if item[0] else "Empty"
-        
-        # 音声生成
         tts = gTTS(text=eng_text, lang='en')
         fp = io.BytesIO()
         tts.write_to_fp(fp)
         fp.seek(0)
         b64 = base64.b64encode(fp.read()).decode()
-        
         entry = {
             "eng": eng_text,
             "jp": str(item[1]) if len(item) > 1 else "",
-            "audio": f"data:audio/mp3;base64,{b64}"
+            "audio": f"data:audio/mp3;base64,{b64}",
+            "ex": str(item[2]) if len(item) > 2 else "",
+            "ext": str(item[3]) if len(item) > 3 else ""
         }
-        if is_tango:
-            entry["ex"] = str(item[2]) if len(item) > 2 else ""
-            entry["ext"] = str(item[3]) if len(item) > 3 else ""
         prepared.append(entry)
     return prepared
 
-with st.spinner("✨ Buddyが単語を読み込み中..."):
+with st.spinner("🚀 大文字モードで準備中..."):
     text_json = json.dumps(prepare_assets(text_raw, False))
     tango_json = json.dumps(prepare_assets(tango_raw, True))
 
-# シンプルなタイトル
-st.markdown("<h1 style='text-align: center; color: #4a90e2;'>🤖 CROWN Buddy</h1>", unsafe_allow_html=True)
+st.markdown("<h1 style='text-align: center; color: #4a90e2;'>🤖 CROWN Buddy (Large)</h1>", unsafe_allow_html=True)
 
 # --- 3. メインUI (HTML/JS) ---
 st.components.v1.html(f"""
     <style>
         @keyframes glow {{
-            0% {{ box-shadow: 0 10px 25px rgba(74,144,226,0.1); border-color: #f0f4f8; }}
-            50% {{ box-shadow: 0 0 30px rgba(74,144,226,0.5); border-color: #4a90e2; }}
-            100% {{ box-shadow: 0 10px 25px rgba(74,144,226,0.1); border-color: #f0f4f8; }}
+            0% {{ box-shadow: 0 10px 40px rgba(74,144,226,0.2); border-color: #f0f4f8; }}
+            50% {{ box-shadow: 0 0 60px rgba(74,144,226,0.8); border-color: #4a90e2; }}
+            100% {{ box-shadow: 0 10px 40px rgba(74,144,226,0.2); border-color: #f0f4f8; }}
         }}
-        .playing {{
-            animation: glow 1.5s infinite ease-in-out;
-        }}
+        .playing {{ animation: glow 1.2s infinite ease-in-out; border-width: 4px !important; }}
+        
+        button {{ font-family: sans-serif; transition: 0.2s; }}
+        button:active {{ transform: scale(0.95); }}
     </style>
 
-    <div id="study-app" style="font-family: sans-serif; color: #444; max-width: 550px; margin: auto;">
+    <div id="study-app" style="font-family: 'Helvetica Neue', Arial, sans-serif; color: #000; max-width: 800px; margin: auto;">
         
-        <div style="display: flex; background: #e0e6ed; padding: 6px; border-radius: 20px; margin-bottom: 20px;">
-            <button id="mode-text" style="flex: 1; padding: 12px; border-radius: 16px; border: none; background: #4a90e2; color: white; font-weight: bold; cursor: pointer;">📖 一覧音読</button>
-            <button id="mode-tango" style="flex: 1; padding: 12px; border-radius: 16px; border: none; background: transparent; color: #555; font-weight: bold; cursor: pointer;">🗂️ 単語カード</button>
+        <div style="display: flex; background: #e0e6ed; padding: 8px; border-radius: 25px; margin-bottom: 30px;">
+            <button id="mode-text" style="flex: 1; padding: 15px; border-radius: 20px; border: none; background: #4a90e2; color: white; font-weight: bold; cursor: pointer; font-size: 18px;">📖 一覧音読</button>
+            <button id="mode-tango" style="flex: 1; padding: 15px; border-radius: 20px; border: none; background: transparent; color: #555; font-weight: bold; cursor: pointer; font-size: 18px;">🗂️ 単語カード</button>
         </div>
 
-        <div style="display: flex; gap: 8px; margin-bottom: 20px; justify-content: center;">
-            <button id="btn-manual" style="padding: 10px 20px; border-radius: 20px; border: 1px solid #ddd; background: #fff; color: #555; font-size: 12px; font-weight: bold;">👆手動</button>
-            <button id="btn-auto" style="padding: 10px 20px; border-radius: 20px; border: 1px solid #ddd; background: #fff; color: #555; font-size: 12px; font-weight: bold;">🤖オート</button>
-            <button id="btn-random" style="padding: 10px 20px; border-radius: 20px; border: 1px solid #ddd; background: #fff; color: #555; font-size: 12px; font-weight: bold;">🔀ランダム</button>
+        <div style="display: flex; gap: 12px; margin-bottom: 30px; justify-content: center;">
+            <button id="btn-manual" style="padding: 12px 25px; border-radius: 25px; border: 1px solid #ccc; background: #fff; font-size: 16px; font-weight: bold;">👆手動</button>
+            <button id="btn-auto" style="padding: 12px 25px; border-radius: 25px; border: 1px solid #ccc; background: #fff; font-size: 16px; font-weight: bold;">🤖オート</button>
+            <button id="btn-random" style="padding: 12px 25px; border-radius: 25px; border: 1px solid #ccc; background: #fff; font-size: 16px; font-weight: bold;">🔀ランダム</button>
         </div>
 
-        <div id="card" style="background: #ffffff; padding: 40px 25px; border-radius: 30px; text-align: center; min-height: 280px; display: flex; flex-direction: column; justify-content: center; box-shadow: 0 10px 25px rgba(74,144,226,0.1); border: 2px solid #f0f4f8; position: relative; transition: 0.3s;">
-            <div style="position: absolute; top: 15px; left: 15px; width: 12px; height: 12px; background: #4a90e2; border-radius: 50%;"></div>
-            <div id="eng" style="font-size: 28px; font-weight: 800; margin-bottom: 15px; color: #2c3e50; line-height: 1.2;"></div>
+        <div id="card" style="background: #ffffff; padding: 60px 40px; border-radius: 40px; text-align: center; min-height: 450px; display: flex; flex-direction: column; justify-content: center; box-shadow: 0 15px 35px rgba(0,0,0,0.1); border: 3px solid #f0f4f8; position: relative; transition: 0.3s;">
+            
+            <div id="eng" style="font-size: 56px; font-weight: 900; margin-bottom: 30px; color: #000; line-height: 1.1; letter-spacing: -1px;"></div>
             
             <div id="jp-container">
-                <div id="jp" style="font-size: 18px; color: #7f8c8d; font-weight: bold; line-height: 1.3;"></div>
-                <div id="tango-extra" style="display: none; border-top: 1px solid #eee; margin-top: 20px; padding-top: 20px;">
-                    <div id="ex" style="font-size: 16px; color: #4a90e2; font-weight: 500; font-style: italic; margin-bottom: 10px;"></div>
-                    <div id="ext" style="font-size: 14px; color: #95a5a6;"></div>
+                <div id="jp" style="font-size: 38px; color: #444; font-weight: 700; line-height: 1.3; background: #f8f9fa; padding: 15px; border-radius: 15px; display: inline-block;"></div>
+                <div id="tango-extra" style="display: none; border-top: 2px solid #eee; margin-top: 40px; padding-top: 30px; text-align: left;">
+                    <div id="ex" style="font-size: 24px; color: #4a90e2; font-weight: 600; font-style: italic; margin-bottom: 15px; line-height: 1.2;"></div>
+                    <div id="ext" style="font-size: 20px; color: #666; font-weight: 500;"></div>
                 </div>
             </div>
 
-            <button id="btn-show" style="display: none; margin: 25px auto 0; padding: 12px 30px; border-radius: 25px; border: none; background: #4a90e2; color: white; font-weight: bold; cursor: pointer; font-size: 14px;">🔍 意味をチェック</button>
+            <button id="btn-show" style="display: none; margin: 40px auto 0; padding: 20px 50px; border-radius: 40px; border: none; background: #4a90e2; color: white; font-weight: bold; cursor: pointer; font-size: 22px; box-shadow: 0 4px 15px rgba(74,144,226,0.3);">🔍 意味を表示</button>
         </div>
 
-        <div id="nav-controls" style="margin-top: 30px; display: flex; gap: 20px; justify-content: center;">
-            <button id="btn-prev" style="width: 70px; height: 70px; border-radius: 50%; background: #fff; border: 1px solid #eee; font-size: 28px; cursor: pointer;">⬅️</button>
-            <button id="btn-next" style="width: 70px; height: 70px; border-radius: 50%; background: #fff; border: 1px solid #eee; font-size: 28px; cursor: pointer;">➡️</button>
+        <div id="nav-controls" style="margin-top: 40px; display: flex; gap: 30px; justify-content: center;">
+            <button id="btn-prev" style="width: 90px; height: 90px; border-radius: 50%; background: #fff; border: 2px solid #eee; font-size: 40px; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.05);">⬅️</button>
+            <button id="btn-next" style="width: 90px; height: 90px; border-radius: 50%; background: #fff; border: 2px solid #eee; font-size: 40px; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.05);">➡️</button>
         </div>
 
-        <div id="auto-extra" style="display: none; margin-top: 20px;">
-            <button id="btn-stop" style="width: 100%; padding: 16px; border-radius: 20px; background: #ff6b6b; color: white; border: none; font-weight: bold;">⏹️ オート停止</button>
+        <div id="auto-extra" style="display: none; margin-top: 30px;">
+            <button id="btn-stop" style="width: 100%; padding: 20px; border-radius: 25px; background: #ff4757; color: white; border: none; font-weight: bold; font-size: 20px; cursor: pointer;">⏹️ オート演奏を停止</button>
         </div>
 
-        <div style="margin-top: 30px; text-align: center;">
-            <div id="status" style="font-size: 14px; color: #bdc3c7; font-weight: bold;"></div>
+        <div style="margin-top: 40px; text-align: center;">
+            <div id="status" style="font-size: 20px; color: #999; font-weight: bold;"></div>
         </div>
     </div>
 
@@ -145,7 +131,7 @@ st.components.v1.html(f"""
             const jpContainer = document.getElementById('jp-container');
 
             if (currentMode === 'tango') {{
-                document.getElementById('jp').style.color = "#e056fd";
+                document.getElementById('jp').style.color = "#d63031"; // 単語モードの時は意味を強調
                 document.getElementById('ex').innerText = item.ex || "";
                 document.getElementById('ext').innerText = item.ext || "";
                 
@@ -159,7 +145,7 @@ st.components.v1.html(f"""
                     showBtn.style.display = "block";
                 }}
             }} else {{
-                document.getElementById('jp').style.color = "#7f8c8d";
+                document.getElementById('jp').style.color = "#444";
                 jpContainer.style.display = "block";
                 extra.style.display = "none";
                 showBtn.style.display = "none";
@@ -181,7 +167,7 @@ st.components.v1.html(f"""
                 currentAudio.onended = () => {{
                     card.classList.remove('playing');
                     if (isAuto) {{
-                        const delay = currentMode === 'text' ? 2200 : 3200;
+                        const delay = currentMode === 'text' ? 2500 : 3500;
                         timer = setTimeout(() => {{
                             if (!isAuto) return;
                             nextCard();
@@ -259,4 +245,4 @@ st.components.v1.html(f"""
 
         updateCard(false);
     </script>
-""", height=720)
+""", height=900) # 画面が高くなるので、表示エリアを広げました
