@@ -7,28 +7,31 @@ import json
 
 st.set_page_config(page_title="CROWN Buddy", layout="centered")
 
-# --- 1. データの読み込み（ロジック維持） ---
+# --- 1. データの読み込み（wordlists.csv を使用） ---
 @st.cache_data
 def load_all_data():
+    # 本文モード用
     try:
-        df_text = pd.read_csv("data.csv").fillna("")
+        df_text = pd.read_csv("wordlists.csv").fillna("")
         text_list = df_text.values.tolist()
     except:
-        text_list = [["Error", "data.csvが見つかりません"]]
+        text_list = [["Error", "wordlists.csvが見つかりません"]]
 
+    # 単語カードモード用（同じファイルを使用）
     try:
-        df_tango = pd.read_csv("crowntango.csv").fillna("")
+        df_tango = pd.read_csv("wordlists.csv").fillna("")
+        # カラムが足りない場合の補完ロジックを維持
         while len(df_tango.columns) < 4:
             df_tango[f'col_{len(df_tango.columns)}'] = ""
         tango_list = df_tango.values.tolist()
     except:
-        tango_list = [["Error", "crowntango.csvなし", "", ""]]
+        tango_list = [["Error", "wordlists.csvなし", "", ""]]
         
     return text_list, tango_list
 
 text_raw, tango_raw = load_all_data()
 
-# --- 2. 音声パック（ロジック維持） ---
+# --- 2. 音声パック（ロジック完全維持） ---
 @st.cache_data
 def prepare_assets(raw_data, is_tango=False):
     prepared = []
@@ -46,17 +49,17 @@ def prepare_assets(raw_data, is_tango=False):
             "audio": f"data:audio/mp3;base64,{b64}"
         }
         if is_tango:
-            entry["ex"] = str(item[2])
-            entry["ext"] = str(item[3])
+            # CSVの3列目、4列目があれば例文として取得
+            entry["ex"] = str(item[2]) if len(item) > 2 else ""
+            entry["ext"] = str(item[3]) if len(item) > 3 else ""
         prepared.append(entry)
     return prepared
 
-with st.spinner("✨ Buddyが準備中..."):
+with st.spinner("✨ Buddyが新しい単語帳を準備中..."):
     text_json = json.dumps(prepare_assets(text_raw, False))
     tango_json = json.dumps(prepare_assets(tango_raw, True))
 
-# --- シンプルなタイトル（ここを変更しました） ---
-# 記号の 🤖 を使い、最も標準的な書き方にしました
+# タイトル
 st.markdown("<h1 style='text-align: center; color: #4a90e2;'>🤖 CROWN Buddy</h1>", unsafe_allow_html=True)
 
 # --- 3. メインUI ---
@@ -75,7 +78,7 @@ st.components.v1.html(f"""
     <div id="study-app" style="font-family: sans-serif; color: #444; max-width: 550px; margin: auto;">
         
         <div style="display: flex; background: #e0e6ed; padding: 6px; border-radius: 20px; margin-bottom: 20px;">
-            <button id="mode-text" style="flex: 1; padding: 12px; border-radius: 16px; border: none; background: #4a90e2; color: white; font-weight: bold; cursor: pointer;">📖 本文音読</button>
+            <button id="mode-text" style="flex: 1; padding: 12px; border-radius: 16px; border: none; background: #4a90e2; color: white; font-weight: bold; cursor: pointer;">📖 一覧音読</button>
             <button id="mode-tango" style="flex: 1; padding: 12px; border-radius: 16px; border: none; background: transparent; color: #555; font-weight: bold; cursor: pointer;">🗂️ 単語カード</button>
         </div>
 
