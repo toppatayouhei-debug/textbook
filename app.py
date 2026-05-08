@@ -5,7 +5,8 @@ import io
 import base64
 import json
 
-st.set_page_config(page_title="CROWN Buddy - Large", layout="centered")
+# ページタイトルの変更
+st.set_page_config(page_title="WordBox - Large", layout="centered")
 
 # --- 1. データの読み込み ---
 @st.cache_data
@@ -46,11 +47,12 @@ def prepare_assets(raw_data, is_tango=False):
         prepared.append(entry)
     return prepared
 
-with st.spinner("🚀 大文字モードで準備中..."):
+with st.spinner("🚀 WordBox 準備中..."):
     text_json = json.dumps(prepare_assets(text_raw, False))
     tango_json = json.dumps(prepare_assets(tango_raw, True))
 
-st.markdown("<h1 style='text-align: center; color: #4a90e2;'>🤖 CROWN Buddy (Large)</h1>", unsafe_allow_html=True)
+# メインタイトルの変更
+st.markdown("<h1 style='text-align: center; color: #4a90e2;'>🤖 WordBox (Large)</h1>", unsafe_allow_html=True)
 
 # --- 3. メインUI (HTML/JS) ---
 st.components.v1.html(f"""
@@ -131,7 +133,7 @@ st.components.v1.html(f"""
             const jpContainer = document.getElementById('jp-container');
 
             if (currentMode === 'tango') {{
-                document.getElementById('jp').style.color = "#d63031"; // 単語モードの時は意味を強調
+                document.getElementById('jp').style.color = "#d63031"; 
                 document.getElementById('ex').innerText = item.ex || "";
                 document.getElementById('ext').innerText = item.ext || "";
                 
@@ -245,4 +247,4 @@ st.components.v1.html(f"""
 
         updateCard(false);
     </script>
-""", height=900) # 画面が高くなるので、表示エリアを広げました
+""", height=900)
